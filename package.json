@@ -10,7 +10,7 @@
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "description": "Ionic Cordova SDK",
+  "description": "Ionic Cordova SDK customized for Ingage Apps",
   "scripts": {
     "apply-dev": "npm run build && ./scripts/apply-changes.sh",
     "create-dev": "./scripts/create-local-app.sh",
@@ -43,16 +43,8 @@
     "cordova-android",
     "cordova-ios"
   ],
-  "author": "Ionic",
+  "author": "Ingage",
   "contributors": [
-    {
-      "name": "Max Lynch",
-      "email": "max@ionic.io"
-    },
-    {
-      "name": "William Pelrine",
-      "email": "rudy@ionic.io"
-    }
   ],
   "license": "MIT",
   "devDependencies": {

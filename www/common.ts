@@ -204,6 +204,7 @@ class IonicDeployImpl {
         prefs.availableUpdate = {
           binaryVersionCode: prefs.binaryVersionCode,
           binaryVersionName: prefs.binaryVersionName,
+          clFrameworkVersion: prefs.clFrameworkVersion,
           channel: prefs.channel,
           state: UpdateState.Available,
           lastUsed: new Date().toISOString(),

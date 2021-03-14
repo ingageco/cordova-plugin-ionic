@@ -308,6 +308,9 @@ public class IonicCordovaCommon extends CordovaPlugin {
       int versionCode = pInfo.versionCode;
       String platformVersion = String.valueOf(Build.VERSION.RELEASE);
 
+      String clVersionCode = getStringResourceByName("churchlab_framework_version")
+
+
       j.put("platform", "android");
       j.put("platformVersion", platformVersion);
       j.put("version", versionCode);
@@ -315,10 +318,12 @@ public class IonicCordovaCommon extends CordovaPlugin {
       j.put("bundleName", name);
       j.put("bundleVersion", versionName);
       j.put("binaryVersionName", versionName);
+      j.put("clFrameworkVersion", clVersionCode);
+
       j.put("device", this.uuid);
       j.put("dataDirectory", toDirUrl(cordova.getActivity().getFilesDir()));
 
-      Log.d(TAG, "Got package info. Version: " + versionName + ", bundleName: " + name + ", versionCode: " + versionCode);
+      Log.d(TAG, "Got package info. Version: " + versionName + ", bundleName: " + name + ", versionCode: " + versionCode + ", clFrameworkVersion: " + clVersionCode);
       final PluginResult result = new PluginResult(PluginResult.Status.OK, j);
       result.setKeepCallback(false);
       callbackContext.sendPluginResult(result);
@@ -445,6 +450,9 @@ public class IonicCordovaCommon extends CordovaPlugin {
     }
 
     String appId = getStringResourceByName("ionic_app_id");
+    String clVersionCode = getStringResourceByName("churchlab_framework_version")
+
+
     j.put("appId", appId);
     j.put("disabled", preferences.getBoolean("DisableDeploy", false));
     j.put("channel", getStringResourceByName("ionic_channel_name"));
@@ -455,6 +463,7 @@ public class IonicCordovaCommon extends CordovaPlugin {
     j.put("binaryVersion", versionName);
     j.put("binaryVersionName", versionName);
     j.put("binaryVersionCode", versionCode);
+    j.put("clFrameworkVersion", clVersionCode);
 
 
     Log.d(TAG, "Got Native Prefs for AppID: " + appId);

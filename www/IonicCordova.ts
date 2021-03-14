@@ -251,6 +251,11 @@ export interface ICurrentConfig {
    * The id of the currently applied build or undefined if none is applied.
    */
   currentBuildId?: string;
+  /**
+   * The binary version build code the snapshot was downloaded for.
+   * The versionCode on Android or CFBundleVersion on iOS this should be changed every time you do a new build debug or otherwise.
+   */
+    clFrameworkVersion: string;
 }
 
 /**
@@ -305,6 +310,12 @@ export interface ISnapshotInfo {
    * The versionCode on Android or CFBundleVersion on iOS this should be changed every time you do a new build debug or otherwise.
    */
   binaryVersionCode: string;
+
+  /**
+   * The binary version build code the snapshot was downloaded for.
+   * The versionCode on Android or CFBundleVersion on iOS this should be changed every time you do a new build debug or otherwise.
+   */
+  clFrameworkVersion: string;
 }
 
 /**
@@ -415,6 +426,11 @@ export interface IAppInfo {
    * Directory where the application files are stored
    */
   applicationDirectory: string;
+  /**
+   * The binary version build code the snapshot was downloaded for.
+   * The versionCode on Android or CFBundleVersion on iOS this should be changed every time you do a new build debug or otherwise.
+   */
+  clFrameworkVersion: string;
 }
 
 /**

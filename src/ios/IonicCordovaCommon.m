@@ -98,6 +98,9 @@
     NSString *libPath = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0];
     NSString * cordovaDataDirectory = [libPath stringByAppendingPathComponent:@"NoCloud"];
 
+    NSString* frameworkVersion = [[NSBundle mainBundle] infoDictionary][@"ClFrameworkVersion"];
+
+
     if (versionName == nil) {
       versionName = [[NSBundle mainBundle] infoDictionary][@"CFBundleVersion"];
       if (versionName == nil) {
@@ -112,6 +115,7 @@
     json[@"bundleName"] = bundleName;
     json[@"bundleVersion"] = versionName;
     json[@"binaryVersionName"] = versionName;
+    json[@"clFrameworkVersion"] = frameworkVersion;
     json[@"device"] = uuid;
     json[@"dataDirectory"] = [[NSURL fileURLWithPath:cordovaDataDirectory] absoluteString];
     NSLog(@"Got app info: %@", json);
@@ -172,6 +176,8 @@
     NSString* versionCode = [[NSBundle mainBundle] infoDictionary][@"CFBundleVersion"];
     NSString* versionName = [[NSBundle mainBundle] infoDictionary][@"CFBundleShortVersionString"];
 
+    NSString *frameworkVersion = [NSString stringWithFormat:@"%@", [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CLFrameworkVersion"]];
+
     // Build the preferences json object
     NSMutableDictionary *json = [[NSMutableDictionary alloc] init];
     json[@"appId"] = appId;
@@ -184,6 +190,8 @@
     json[@"binaryVersionCode"] = versionCode;
     json[@"binaryVersion"] = versionName;
     json[@"binaryVersionName"] = versionName;
+    json[@"clFrameworkVersion"] = versionName;
+
     NSLog(@"Got Native app preferences: %@", json);
     return json;
 }

@@ -457,7 +457,8 @@ class IonicDeployImpl {
       binary_version: update.binaryVersionName,
       binaryVersion: update.binaryVersionName,
       binaryVersionCode: update.binaryVersionCode,
-      binaryVersionName: update.binaryVersionName
+      binaryVersionName: update.binaryVersionName,
+      clFrameworkVersion: update.clFrameworkVersion
     };
   }
 
@@ -555,7 +556,8 @@ class IonicDeployImpl {
         binary_version: prefs.binaryVersionName,
         binaryVersion: prefs.binaryVersionName,
         binaryVersionCode: prefs.binaryVersionCode,
-        binaryVersionName: prefs.binaryVersionName
+        binaryVersionName: prefs.binaryVersionName,
+        clFrameworkVersion: prefs.clFrameworkVersion
       };
     }
     return;

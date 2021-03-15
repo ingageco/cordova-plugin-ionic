@@ -44,8 +44,7 @@
     "cordova-ios"
   ],
   "author": "Ingage",
-  "contributors": [
-  ],
+  "contributors": [],
   "license": "MIT",
   "devDependencies": {
     "@angular/compiler": "^9.1.1",
@@ -56,11 +55,8 @@
     "np": "^3.0.4",
     "rimraf": "^2.6.2",
     "sync-cordova-xml2": "0.0.2",
-    "ts-jest": "^22.4.2",
     "tslint": "^5.9.1",
     "tslint-ionic-rules": "0.0.14",
-    "typedoc": "^0.11.1",
-    "typedoc-plugin-markdown": "^1.1.6",
     "watch": "^1.0.2"
   },
   "jest": {
@@ -79,6 +75,6 @@
     "testRegex": "tests/.*\\.(ts|js)$"
   },
   "dependencies": {
-    "typescript": "^3.5.3"
+    "typescript": "^3.6 <3.9"
   }
 }

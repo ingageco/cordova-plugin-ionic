@@ -190,7 +190,7 @@
     json[@"binaryVersionCode"] = versionCode;
     json[@"binaryVersion"] = versionName;
     json[@"binaryVersionName"] = versionName;
-    json[@"clFrameworkVersion"] = versionName;
+    json[@"clFrameworkVersion"] = frameworkVersion;
 
     NSLog(@"Got Native app preferences: %@", json);
     return json;

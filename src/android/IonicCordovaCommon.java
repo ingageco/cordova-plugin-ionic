@@ -308,7 +308,7 @@ public class IonicCordovaCommon extends CordovaPlugin {
       int versionCode = pInfo.versionCode;
       String platformVersion = String.valueOf(Build.VERSION.RELEASE);
 
-      String clVersionCode = getStringResourceByName("churchlab_framework_version")
+      String clVersionCode = getStringResourceByName("churchlab_framework_version");
 
 
       j.put("platform", "android");

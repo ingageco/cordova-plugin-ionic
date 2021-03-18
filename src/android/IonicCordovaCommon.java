@@ -450,7 +450,7 @@ public class IonicCordovaCommon extends CordovaPlugin {
     }
 
     String appId = getStringResourceByName("ionic_app_id");
-    String clVersionCode = getStringResourceByName("churchlab_framework_version")
+    String clVersionCode = getStringResourceByName("churchlab_framework_version");
 
 
     j.put("appId", appId);

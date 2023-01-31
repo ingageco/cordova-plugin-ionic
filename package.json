@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-ionic",
-  "version": "5.4.7",
+  "version": "5.5.3",
   "cordova": {
     "id": "cordova-plugin-ionic",
     "platforms": [
@@ -75,6 +75,6 @@
     "testRegex": "tests/.*\\.(ts|js)$"
   },
   "dependencies": {
-    "typescript": "^3.6 <3.9"
+    "typescript": "^3.8.3"
   }
 }

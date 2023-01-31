@@ -82,7 +82,7 @@ var IonicDeployImpl = /** @class */ (function () {
         this._fileManager = new FileManager();
         this.SNAPSHOT_CACHE = 'ionic_built_snapshots';
         this.MANIFEST_FILE = 'pro-manifest.json';
-        this.PLUGIN_VERSION = '5.4.7';
+        this.PLUGIN_VERSION = '5.5.3';
         this.appInfo = appInfo;
         this._savedPreferences = preferences;
     }
@@ -93,7 +93,7 @@ var IonicDeployImpl = /** @class */ (function () {
                 switch (_b.label) {
                     case 0: 
                     // make sure we're not going to redirect to a stale version
-                    return [4 /*yield*/, this.cleanCurrentVersionIfStale()];
+                    return [4 /*yield*/, this.cleanupStaleVersions()];
                     case 1:
                         // make sure we're not going to redirect to a stale version
                         _b.sent();
@@ -530,40 +530,54 @@ var IonicDeployImpl = /** @class */ (function () {
         });
     };
     // compare an update to the current version using both name & code
-    IonicDeployImpl.prototype.isCurrentVersion = function (update) {
+    IonicDeployImpl.prototype.isUpdateForCurrentBinary = function (update) {
         var currentVersionCode = this._savedPreferences.binaryVersionCode;
         var currentVersionName = this._savedPreferences.binaryVersionName;
         console.log("Current: versionCode: " + currentVersionCode + " versionName: " + currentVersionName);
         console.log("update: versionCode: " + update.binaryVersionCode + " versionName: " + update.binaryVersionName);
         return update.binaryVersionName === currentVersionName && update.binaryVersionCode === currentVersionCode;
     };
-    IonicDeployImpl.prototype.cleanCurrentVersionIfStale = function () {
+    IonicDeployImpl.prototype.isUpdateCurrentlyInstalled = function (update) {
+        return this._savedPreferences.currentVersionId === update.versionId;
+    };
+    IonicDeployImpl.prototype.cleanupStaleVersions = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var prefs, _a, versionId;
+            var updates, prefs, _i, updates_1, update, _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
+                        updates = this.getStoredUpdates();
                         prefs = this._savedPreferences;
-                        if (!prefs.currentVersionId) return [3 /*break*/, 4];
-                        _a = !this.isCurrentVersion(prefs.updates[prefs.currentVersionId]);
-                        if (!_a) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this._isRunningVersion(prefs.currentVersionId)];
+                        _i = 0, updates_1 = updates;
+                        _b.label = 1;
                     case 1:
-                        _a = !(_b.sent());
-                        _b.label = 2;
+                        if (!(_i < updates_1.length)) return [3 /*break*/, 6];
+                        update = updates_1[_i];
+                        _a = !this.isUpdateForCurrentBinary(update);
+                        if (!_a) return [3 /*break*/, 3];
+                        return [4 /*yield*/, this._isRunningVersion(update.versionId)];
                     case 2:
-                        if (!_a) return [3 /*break*/, 4];
-                        console.log("Update " + prefs.currentVersionId + " was built for different binary version removing update from device" +
-                            ("Update binaryVersionName: " + prefs.updates[prefs.currentVersionId].binaryVersionName + ", Device binaryVersionName " + prefs.binaryVersionName) +
-                            ("Update binaryVersionCode: " + prefs.updates[prefs.currentVersionId].binaryVersionCode + ", Device binaryVersionCode " + prefs.binaryVersionCode));
-                        versionId = prefs.currentVersionId;
-                        // NOTE: deleting pref.currentVersionId here to fool deleteVersionById into deleting it
-                        delete prefs.currentVersionId;
-                        return [4 /*yield*/, this.deleteVersionById(versionId)];
+                        _a = !(_b.sent());
+                        _b.label = 3;
                     case 3:
+                        if (!_a) return [3 /*break*/, 5];
+                        console.log("Update " + update.versionId + " was built for different binary version removing update from device" +
+                            ("Update binaryVersionName: " + update.binaryVersionName + ", Device binaryVersionName " + prefs.binaryVersionName) +
+                            ("Update binaryVersionCode: " + update.binaryVersionCode + ", Device binaryVersionCode " + prefs.binaryVersionCode));
+                        // This is no longer necessary for this function, but a previous version of the code
+                        // deleted `prefs.currentVersionId` near initialization so other code may rely on still
+                        // deleting `prefs.currentVersionId`.
+                        if (this.isUpdateCurrentlyInstalled(update)) {
+                            delete prefs.currentVersionId;
+                        }
+                        return [4 /*yield*/, this.deleteVersionById(update.versionId)];
+                    case 4:
                         _b.sent();
-                        _b.label = 4;
-                    case 4: return [2 /*return*/];
+                        _b.label = 5;
+                    case 5:
+                        _i++;
+                        return [3 /*break*/, 1];
+                    case 6: return [2 /*return*/];
                 }
             });
         });
@@ -699,9 +713,6 @@ var IonicDeployImpl = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         prefs = this._savedPreferences;
-                        if (prefs.currentVersionId === versionId) {
-                            throw Error("Can't delete version with id: " + versionId + " as it is the current version.");
-                        }
                         delete prefs.updates[versionId];
                         return [4 /*yield*/, this._savePrefs(prefs)];
                     case 1:
@@ -717,61 +728,43 @@ var IonicDeployImpl = /** @class */ (function () {
         });
     };
     IonicDeployImpl.prototype.getStoredUpdates = function () {
-        // get an array of stored updates minus current deployed one
+        // get an array of stored updates
         var prefs = this._savedPreferences;
         var updates = [];
         for (var _i = 0, _a = Object.keys(prefs.updates); _i < _a.length; _i++) {
             var versionId = _a[_i];
             // don't clean up the current version
-            if (versionId !== prefs.currentVersionId) {
-                updates.push(prefs.updates[versionId]);
-            }
+            updates.push(prefs.updates[versionId]);
         }
         return updates;
     };
     IonicDeployImpl.prototype.cleanupVersions = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var prefs, updates, _i, updates_1, update, _a, updates_2, update;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        prefs = this._savedPreferences;
-                        updates = this.getStoredUpdates();
-                        _i = 0, updates_1 = updates;
-                        _b.label = 1;
+            var prefs, updatesToDelete, _i, updatesToDelete_1, update;
+            var _this = this;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.cleanupStaleVersions()];
                     case 1:
-                        if (!(_i < updates_1.length)) return [3 /*break*/, 4];
-                        update = updates_1[_i];
-                        if (!!this.isCurrentVersion(update)) return [3 /*break*/, 3];
-                        console.log("Update " + update.versionId + " was built for different binary version removing update from device" +
-                            ("Update binaryVersionName: " + update.binaryVersionName + ", Device binaryVersionName " + prefs.binaryVersionName) +
-                            ("Update binaryVersionCode: " + update.binaryVersionCode + ", Device binaryVersionCode " + prefs.binaryVersionCode));
-                        return [4 /*yield*/, this.deleteVersionById(update.versionId)];
+                        _a.sent();
+                        prefs = this._savedPreferences;
+                        updatesToDelete = this.getStoredUpdates().filter(function (a) { return !_this.isUpdateCurrentlyInstalled(a); })
+                            .sort(function (a, b) { return a.lastUsed.localeCompare(b.lastUsed); })
+                            .reverse()
+                            .slice(prefs.maxVersions);
+                        _i = 0, updatesToDelete_1 = updatesToDelete;
+                        _a.label = 2;
                     case 2:
-                        _b.sent();
-                        _b.label = 3;
-                    case 3:
-                        _i++;
-                        return [3 /*break*/, 1];
-                    case 4:
-                        // clean down to Max Updates stored
-                        updates = this.getStoredUpdates();
-                        updates = updates.sort(function (a, b) { return a.lastUsed.localeCompare(b.lastUsed); });
-                        updates = updates.reverse();
-                        updates = updates.slice(prefs.maxVersions);
-                        _a = 0, updates_2 = updates;
-                        _b.label = 5;
-                    case 5:
-                        if (!(_a < updates_2.length)) return [3 /*break*/, 8];
-                        update = updates_2[_a];
+                        if (!(_i < updatesToDelete_1.length)) return [3 /*break*/, 5];
+                        update = updatesToDelete_1[_i];
                         return [4 /*yield*/, this.deleteVersionById(update.versionId)];
-                    case 6:
-                        _b.sent();
-                        _b.label = 7;
-                    case 7:
-                        _a++;
-                        return [3 /*break*/, 5];
-                    case 8: return [2 /*return*/];
+                    case 3:
+                        _a.sent();
+                        _a.label = 4;
+                    case 4:
+                        _i++;
+                        return [3 /*break*/, 2];
+                    case 5: return [2 /*return*/];
                 }
             });
         });

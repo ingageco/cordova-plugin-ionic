@@ -12,6 +12,62 @@
 
 @implementation IonicCordovaCommon
 
+// Runs at process start, before Capacitor's CAPBridgeViewController reads the
+// persisted serverBasePath in loadView(). If that path points at a snapshot that
+// no longer exists on disk (device migration, iCloud restore, failed download),
+// Capacitor calls exit(1) before the web view - and any JS recovery code - can
+// run, leaving the app in a crash loop until it is reinstalled. Clearing the
+// stale pointer here makes Capacitor fall back to the bundled web assets.
++ (void) load {
+    [self repairStaleDeployState];
+}
+
++ (NSString*) snapshotsDirectory {
+    NSString *libPath = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) firstObject];
+    return [[libPath stringByAppendingPathComponent:@"NoCloud"] stringByAppendingPathComponent:@"ionic_built_snapshots"];
+}
+
+// A snapshot is only servable if the file Capacitor's startup guard checks for
+// (index.html) is present; a bare directory is not enough.
++ (BOOL) isSnapshotServable:(NSString*)versionId {
+    if (versionId == nil || versionId.length == 0) {
+        return NO;
+    }
+    NSString *indexPath = [[[self snapshotsDirectory] stringByAppendingPathComponent:versionId] stringByAppendingPathComponent:@"index.html"];
+    return [[NSFileManager defaultManager] fileExistsAtPath:indexPath];
+}
+
++ (void) repairStaleDeployState {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *libPath = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) firstObject];
+
+    // Capacitor >= 6 persists the base path as a JSON string in Library/kvstore/standard/serverBasePath
+    NSString *kvStoreFile = [libPath stringByAppendingPathComponent:@"kvstore/standard/serverBasePath"];
+    if ([fm fileExistsAtPath:kvStoreFile]) {
+        NSString *persistedPath = nil;
+        NSData *data = [NSData dataWithContentsOfFile:kvStoreFile];
+        if (data != nil) {
+            id decoded = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:nil];
+            if ([decoded isKindOfClass:[NSString class]]) {
+                persistedPath = decoded;
+            }
+        }
+        if (![self isSnapshotServable:[persistedPath lastPathComponent]]) {
+            NSLog(@"IonicCordovaCommon: persisted serverBasePath (%@) has no servable snapshot on disk, clearing it to prevent a startup crash", persistedPath);
+            [fm removeItemAtPath:kvStoreFile error:nil];
+        }
+    }
+
+    // Capacitor <= 5 persisted the base path in NSUserDefaults
+    NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
+    NSString *legacyPath = [prefs stringForKey:@"serverBasePath"];
+    if (legacyPath != nil && legacyPath.length > 0 && ![self isSnapshotServable:[legacyPath lastPathComponent]]) {
+        NSLog(@"IonicCordovaCommon: legacy serverBasePath (%@) has no servable snapshot on disk, clearing it to prevent a startup crash", legacyPath);
+        [prefs removeObjectForKey:@"serverBasePath"];
+        [prefs synchronize];
+    }
+}
+
 - (void) pluginInitialize {
     NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
 
@@ -138,8 +194,12 @@
     NSMutableDictionary *customConfig = [self getCustomConfig];
 
     if (savedPrefs!= nil) {
-        
+
         NSLog(@"found some saved prefs doing precedence ops: %@", savedPrefs);
+        // Drop any recorded updates whose snapshot files are gone from disk so
+        // the JS layer never redirects the webview into a missing snapshot
+        savedPrefs = [self sanitizeSavedPreferences:savedPrefs];
+
         // Merge with most up to date Native Settings
         [savedPrefs addEntriesFromDictionary:nativeConfig];
 
@@ -158,6 +218,53 @@
     NSLog(@"Initialized App Prefs: %@", nativeConfig);
 
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:nativeConfig] callbackId:command.callbackId];
+}
+
+- (NSMutableDictionary*) sanitizeSavedPreferences:(NSMutableDictionary*)savedPrefs {
+    BOOL changed = NO;
+
+    NSDictionary *updates = savedPrefs[@"updates"];
+    if ([updates isKindOfClass:[NSDictionary class]]) {
+        NSMutableDictionary *validUpdates = [updates mutableCopy];
+        for (NSString *versionId in updates) {
+            if (![IonicCordovaCommon isSnapshotServable:versionId]) {
+                NSLog(@"IonicCordovaCommon: dropping update %@ because its snapshot files are missing from disk", versionId);
+                [validUpdates removeObjectForKey:versionId];
+                changed = YES;
+            }
+        }
+        if (changed) {
+            savedPrefs[@"updates"] = validUpdates;
+        }
+    }
+
+    NSString *currentVersionId = savedPrefs[@"currentVersionId"];
+    if ([currentVersionId isKindOfClass:[NSString class]] && ![IonicCordovaCommon isSnapshotServable:currentVersionId]) {
+        NSLog(@"IonicCordovaCommon: current version %@ has no snapshot on disk, reverting to bundled version", currentVersionId);
+        [savedPrefs removeObjectForKey:@"currentVersionId"];
+        [savedPrefs removeObjectForKey:@"currentBuildId"];
+        changed = YES;
+    }
+
+    // Pending/ready updates have already been written to disk; if the files are
+    // gone the update can never be applied, so make the JS re-download it
+    NSDictionary *availableUpdate = savedPrefs[@"availableUpdate"];
+    if ([availableUpdate isKindOfClass:[NSDictionary class]]) {
+        NSString *state = availableUpdate[@"state"];
+        NSString *versionId = availableUpdate[@"versionId"];
+        BOOL onDisk = [state isEqualToString:@"pending"] || [state isEqualToString:@"ready"];
+        if (onDisk && ![IonicCordovaCommon isSnapshotServable:versionId]) {
+            NSLog(@"IonicCordovaCommon: available update %@ has no snapshot on disk, discarding it", versionId);
+            [savedPrefs removeObjectForKey:@"availableUpdate"];
+            changed = YES;
+        }
+    }
+
+    if (changed) {
+        [[NSUserDefaults standardUserDefaults] setObject:savedPrefs forKey:@"ionicDeploySavedPreferences"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    }
+    return savedPrefs;
 }
 
 - (void) setPreferences:(CDVInvokedUrlCommand*)command {

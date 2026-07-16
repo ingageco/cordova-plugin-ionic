@@ -63,6 +63,40 @@ public class IonicCordovaCommon extends CordovaPlugin {
     // Get or generate a plugin UUID
     this.uuid = this.prefs.getString("uuid", UUID.randomUUID().toString());
     prefs.edit().putString("uuid", this.uuid).apply();
+
+    repairStaleServerBasePath(cxt);
+  }
+
+  /**
+   * Capacitor's Bridge restores the persisted serverBasePath at boot after only
+   * checking that the directory exists - a snapshot directory that lost its
+   * index.html (failed download, cleared storage) results in a blank webview on
+   * every launch. Clear the stale pointer so the next launch falls back to the
+   * bundled web assets and the deploy plugin can re-sync.
+   */
+  private void repairStaleServerBasePath(Context cxt) {
+    try {
+      SharedPreferences capPrefs = cxt.getSharedPreferences("CapWebViewSettings", Activity.MODE_PRIVATE);
+      String basePath = capPrefs.getString("serverBasePath", null);
+      if (basePath != null && !basePath.isEmpty() && !new File(basePath, "index.html").exists()) {
+        Log.w(TAG, "Persisted serverBasePath (" + basePath + ") has no servable snapshot on disk, clearing it");
+        capPrefs.edit().remove("serverBasePath").apply();
+      }
+    } catch (Exception e) {
+      Log.e(TAG, "Unable to validate persisted serverBasePath", e);
+    }
+  }
+
+  /**
+   * A snapshot is only servable if its index.html is present; a bare directory
+   * is not enough.
+   */
+  private boolean isSnapshotServable(String versionId) {
+    if (versionId == null || versionId.isEmpty()) {
+      return false;
+    }
+    File filesDir = this.cordova.getActivity().getApplicationContext().getFilesDir();
+    return new File(new File(filesDir, "ionic_built_snapshots"), versionId + "/index.html").exists();
   }
 
   private void threadhelper(final FileOp f, final JSONArray args, final CallbackContext callbackContext){
@@ -408,6 +442,10 @@ public class IonicCordovaCommon extends CordovaPlugin {
       // grab the save prefs
       savedPrefs = new JSONObject(prefsString);
 
+      // drop any recorded updates whose snapshot files are gone from disk so
+      // the JS layer never redirects the webview into a missing snapshot
+      savedPrefs = this.sanitizeSavedPreferences(savedPrefs, prefs);
+
       // update with the lastest things from config.xml
       this.mergeObjects(savedPrefs, nativePrefs);
 
@@ -430,6 +468,53 @@ public class IonicCordovaCommon extends CordovaPlugin {
       Log.e(TAG, "Unable to get preferences", ex);
       callbackContext.error(ex.toString());
     }
+  }
+
+  private JSONObject sanitizeSavedPreferences(JSONObject savedPrefs, SharedPreferences prefs) {
+    try {
+      boolean changed = false;
+
+      JSONObject updates = savedPrefs.optJSONObject("updates");
+      if (updates != null) {
+        Iterator<String> versionIds = updates.keys();
+        while (versionIds.hasNext()) {
+          String versionId = versionIds.next();
+          if (!isSnapshotServable(versionId)) {
+            Log.w(TAG, "Dropping update " + versionId + " because its snapshot files are missing from disk");
+            versionIds.remove();
+            changed = true;
+          }
+        }
+      }
+
+      String currentVersionId = savedPrefs.optString("currentVersionId", null);
+      if (currentVersionId != null && !isSnapshotServable(currentVersionId)) {
+        Log.w(TAG, "Current version " + currentVersionId + " has no snapshot on disk, reverting to bundled version");
+        savedPrefs.remove("currentVersionId");
+        savedPrefs.remove("currentBuildId");
+        changed = true;
+      }
+
+      // Pending/ready updates have already been written to disk; if the files
+      // are gone the update can never be applied, so make the JS re-download it
+      JSONObject availableUpdate = savedPrefs.optJSONObject("availableUpdate");
+      if (availableUpdate != null) {
+        String state = availableUpdate.optString("state", "");
+        boolean onDisk = state.equals("pending") || state.equals("ready");
+        if (onDisk && !isSnapshotServable(availableUpdate.optString("versionId", null))) {
+          Log.w(TAG, "Available update has no snapshot on disk, discarding it");
+          savedPrefs.remove("availableUpdate");
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        prefs.edit().putString(this.PREFS_KEY, savedPrefs.toString()).apply();
+      }
+    } catch (Exception e) {
+      Log.e(TAG, "Unable to sanitize saved preferences", e);
+    }
+    return savedPrefs;
   }
 
   private JSONObject getNativeConfig() throws JSONException {

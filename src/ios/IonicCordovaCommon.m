@@ -132,19 +132,33 @@
         if (error) {
             NSLog(@"Download Error:%@",error.description);
             [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: [error localizedDescription]]  callbackId:command.callbackId];
+            return;
         }
         NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *) response;
         if (httpResponse.statusCode != 200) {
-            NSString *errorMsg = [NSString stringWithFormat:@"HTTP response status code: %ld", httpResponse.statusCode];
+            NSString *errorMsg = [NSString stringWithFormat:@"HTTP response status code: %ld", (long)httpResponse.statusCode];
             NSLog(@"Download Error: %@", errorMsg);
-           [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: errorMsg]  callbackId:command.callbackId];
+            [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: errorMsg]  callbackId:command.callbackId];
+            return;
         }
-        if (data) {
-            [[NSFileManager defaultManager] createDirectoryAtPath:[target stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:nil];
-            [data writeToFile:target atomically:YES];
-            NSLog(@"File is saved to %@", target);
-            [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK] callbackId:command.callbackId];
+        if (data == nil) {
+            [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"Download returned no data"]  callbackId:command.callbackId];
+            return;
         }
+        NSError *createDirError = nil;
+        if (![[NSFileManager defaultManager] createDirectoryAtPath:[target stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:&createDirError]) {
+            NSLog(@"Error creating download directory: %@", [createDirError localizedDescription]);
+            [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: [createDirError localizedDescription]]  callbackId:command.callbackId];
+            return;
+        }
+        NSError *writeError = nil;
+        if (![data writeToFile:target options:NSDataWritingAtomic error:&writeError]) {
+            NSLog(@"Error writing downloaded file (disk full?): %@", [writeError localizedDescription]);
+            [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: [writeError localizedDescription]]  callbackId:command.callbackId];
+            return;
+        }
+        NSLog(@"File is saved to %@", target);
+        [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK] callbackId:command.callbackId];
     }] resume];
 }
 

@@ -310,19 +310,16 @@ public class IonicCordovaCommon extends CordovaPlugin {
 
     try {
       URL u = new URL(url);
-      InputStream is = u.openStream();
-
-      DataInputStream dis = new DataInputStream(is);
-
-      byte[] buffer = new byte[1024];
-      int length;
-
       File downFile = new File(dest);
       downFile.getParentFile().mkdirs();
-      downFile.createNewFile();
-      FileOutputStream fos = new FileOutputStream(downFile);
-      while ((length = dis.read(buffer))>0) {
-        fos.write(buffer, 0, length);
+
+      try (DataInputStream dis = new DataInputStream(u.openStream());
+           FileOutputStream fos = new FileOutputStream(downFile)) {
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = dis.read(buffer)) > 0) {
+          fos.write(buffer, 0, length);
+        }
       }
 
     } catch (Exception e) {
